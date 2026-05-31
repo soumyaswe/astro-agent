@@ -1,6 +1,6 @@
-const express = require("express");
-const { z } = require("zod");
-const { supabaseAnon } = require("../config/supabase");
+import express from "express";
+import { z } from "zod";
+import { supabaseAnon } from "../config/supabase";
 
 const router = express.Router();
 
@@ -28,8 +28,8 @@ router.post("/signup", async (req, res, next) => {
     });
 
     if (error) {
-      error.statusCode = error.status || 400;
-      error.expose = true;
+      (error as any).statusCode = error.status || 400;
+      (error as any).expose = true;
       throw error;
     }
 
@@ -58,8 +58,8 @@ router.post("/signin", async (req, res, next) => {
     });
 
     if (error) {
-      error.statusCode = error.status || 401;
-      error.expose = true;
+      (error as any).statusCode = error.status || 401;
+      (error as any).expose = true;
       throw error;
     }
 
@@ -83,8 +83,8 @@ router.post("/logout", async (req, res, next) => {
     const { error } = await supabaseAnon.auth.signOut();
 
     if (error) {
-      error.statusCode = error.status || 500;
-      error.expose = true;
+      (error as any).statusCode = error.status || 500;
+      (error as any).expose = true;
       throw error;
     }
 
@@ -94,4 +94,4 @@ router.post("/logout", async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export const authRoutes = router;

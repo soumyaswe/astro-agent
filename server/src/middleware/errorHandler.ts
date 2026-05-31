@@ -1,4 +1,6 @@
-function errorHandler(err, req, res, next) {
+import type { Request, Response, NextFunction } from "express";
+
+export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
   const status = err.statusCode || 500;
   const message = err.expose ? err.message : "Internal server error";
 
@@ -6,7 +8,3 @@ function errorHandler(err, req, res, next) {
     error: message,
   });
 }
-
-module.exports = {
-  errorHandler,
-};
