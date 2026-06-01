@@ -3,3 +3,11 @@
 
 #dependencies
 node_modules
+
+#build output
+dist
+build
+
+#test files
+test.ts
+test-stream.ts
