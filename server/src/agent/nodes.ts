@@ -2,8 +2,9 @@ import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { AgentStateType } from "./state";
+import {get_daily_transits} from "../tools/getDailyTransits";
 
-const tools: any[] = [];
+const tools: any[] = [get_daily_transits];
 
 //tool node - executes the tool calls and updates the state with the tool results
 export const toolNode = new ToolNode(tools);

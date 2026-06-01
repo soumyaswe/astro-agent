@@ -10,6 +10,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "@swisseph/core": "^1.1.3",
     "@swisseph/node": "^1.2.2",
+    "astronomy-engine": "^2.1.19",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
