@@ -10,3 +10,6 @@ build
 
 #test files
 tests/
+
+#typescript build cache
+*.tsbuildinfo
