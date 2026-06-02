@@ -89,26 +89,50 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
     setLoadingHistory(true);
     setMessages([]);
 
-    const { data, error } = await supabase
-      .from('langgraph_checkpoints')
-      .select('message_history')
-      .eq('thread_id', sessionId)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('langgraph_checkpoints')
+        .select('message_history')
+        .eq('thread_id', sessionId)
+        .single();
 
-    setLoadingHistory(false);
+      if (error) {
+        console.error('Error loading history:', error.message);
+      } else if (data && Array.isArray(data.message_history)) {
+        // Filter out tool calls, tool responses, and system messages
+        const validMessages = data.message_history.filter((msg) => {
+          const type = msg.role || msg.type || 'assistant';
+          if (type === 'tool' || type === 'system') return false;
+          
+          // Hide assistant messages that are purely function call intents
+          if (type === 'assistant' || type === 'ai') {
+            const contentStr = String(msg.content || '').trim();
+            if (contentStr === '' || contentStr.startsWith('[{"type":"functionCall"')) {
+              return false;
+            }
+          }
+          return true;
+        });
 
-    if (error) {
-      console.error('Error loading history:', error.message);
-      return;
-    }
-
-    if (data?.message_history && Array.isArray(data.message_history)) {
-      const normalized = data.message_history.map((msg) => ({
-        id: nextId(),
-        role: msg.role || msg.type || 'assistant',
-        content: String(msg.content || msg.text || ''),
-      }));
-      setMessages(normalized);
+        const formattedHistory = validMessages.map((msg) => {
+          let role = 'assistant';
+          const type = msg.role || msg.type || 'assistant';
+          if (type === 'human' || type === 'user') {
+            role = 'user';
+          }
+          
+          return {
+            id: nextId(),
+            role: role,
+            content: String(msg.content || ''),
+          };
+        });
+        setMessages(formattedHistory);
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching history:', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 

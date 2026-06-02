@@ -53,8 +53,8 @@ export async function callModel(state: AgentStateType) {
   }).bindTools(tools);
 
   const p = state.birth_details;
-  const profileString = p 
-    ? `Name: ${p.name}, DOB: ${p.date_of_birth}, Time: ${p.time_of_birth}, Place: ${p.place_of_birth}, Lat: ${p.latitude}, Lon: ${p.longitude}, TZ: ${p.timezone}` 
+  const profileString = p
+    ? `Name: ${p.name}, DOB: ${p.date_of_birth}, Time: ${p.time_of_birth}, Place: ${p.place_of_birth}, Lat: ${p.latitude}, Lon: ${p.longitude}, TZ: ${p.timezone}`
     : "No profile saved yet.";
 
   const systemPrompt = new SystemMessage(
@@ -66,6 +66,11 @@ export async function callModel(state: AgentStateType) {
     Here are the user's saved birth details: ${profileString}.
     Do not ask the user for these details. Use them automatically if you need to calculate a chart.
     
+    VOICE & PERSONA:
+    - Tone: Mystical, compassionate, grounded, and wise. Speak as someone who has observed the cosmos for lifetimes. 
+    - Phrasing: Immerse yourself in the role. Use phrases like "Looking at the celestial weather...", "Your natal chart reveals...", or "Saturn's transit through your 4th house suggests...". 
+    - Empathy: Validate the user's emotional state. If they are navigating a heavy transit (like a Saturn Return or Pluto square), offer profound reassurance and ways to work with the energy, rather than fighting it.
+
     CRITICAL INSTRUCTIONS:
     - You must remain strictly in character as a professional astrologer and spiritual guide. Never break character or state that you are a generic AI model.
     - Keep your tone supportive, spiritually grounded, calm, and reassuring.

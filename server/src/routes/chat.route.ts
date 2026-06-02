@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { HumanMessage } from "@langchain/core/messages";
 import { app as agentApp } from "../agent/graph";
 import { BirthDetails } from "../agent/state";
+import { supabaseAdmin } from "../config/supabase";
 
 export async function chatHandler(req: Request, res: Response): Promise<void> {
   const {
@@ -100,6 +101,40 @@ export async function chatHandler(req: Request, res: Response): Promise<void> {
       else if (eventType === "on_tool_end") {
         send({ type: "tool_end", tool: name });
       }
+    }
+
+    // Save the conversation history to Supabase
+    try {
+      const finalState = await agentApp.getState({ configurable: { thread_id } });
+      if (finalState && finalState.values && finalState.values.messages) {
+        const messageHistory = finalState.values.messages.map((msg: any) => {
+          let role = "assistant";
+          const type = msg._getType ? msg._getType() : msg.type;
+          if (type === "human") role = "user";
+          else if (type === "system") role = "system";
+          else if (type === "tool") role = "tool";
+          else if (type === "ai") role = "assistant";
+          
+          return {
+            role,
+            content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)
+          };
+        });
+
+        const { error } = await supabaseAdmin
+          .from("langgraph_checkpoints")
+          .upsert({
+            thread_id: thread_id,
+            message_history: messageHistory,
+            checkpoint_data: "{}" // Bypass NOT NULL constraint in Supabase schema
+          });
+
+        if (error) {
+          console.error("[/api/chat] Failed to save checkpoint to Supabase:", error);
+        }
+      }
+    } catch (saveErr) {
+      console.error("[/api/chat] Error retrieving or saving final state:", saveErr);
     }
 
     // Signal the client that the stream is done
