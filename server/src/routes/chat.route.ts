@@ -103,10 +103,20 @@ export async function chatHandler(req: Request, res: Response): Promise<void> {
       }
     }
 
+    let finalUsage = null;
+    let toolCount = 0;
     // Save the conversation history to Supabase
     try {
       const finalState = await agentApp.getState({ configurable: { thread_id } });
       if (finalState && finalState.values && finalState.values.messages) {
+        const msgs = finalState.values.messages;
+        toolCount = msgs.filter((m: any) => m._getType && m._getType() === "tool").length;
+        
+        const lastAI = [...msgs].reverse().find((m: any) => m._getType && m._getType() === "ai" && m.usage_metadata);
+        if (lastAI) {
+           finalUsage = lastAI.usage_metadata;
+        }
+        
         const messageHistory = finalState.values.messages.map((msg: any) => {
           let role = "assistant";
           const type = msg._getType ? msg._getType() : msg.type;
@@ -138,7 +148,7 @@ export async function chatHandler(req: Request, res: Response): Promise<void> {
     }
 
     // Signal the client that the stream is done
-    send({ type: "end" });
+    send({ type: "end", usage: finalUsage, tools: toolCount });
   } catch (err) {
     console.error("[/api/chat] Stream error:", err);
     send({ type: "error", message: "Stream failed unexpectedly." });

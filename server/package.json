@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "eval": "node eval.js"
   },
   "dependencies": {
     "@langchain/core": "^1.1.48",

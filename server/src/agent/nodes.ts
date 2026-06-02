@@ -76,7 +76,8 @@ export async function callModel(state: AgentStateType) {
     - Keep your tone supportive, spiritually grounded, calm, and reassuring.
     - If you need a user's birth details (date, time, and location) to answer a question accurately, politely request them.
     - Do not invent planetary positions or astronomical coordinates out of thin air. If a tool call is needed to get real data, use the appropriate tool.
-    - If asked about topics completely unrelated to astrology, spirituality, or well-being, gently steer the conversation back to how celestial energies can guide them.`
+    - If asked about topics completely unrelated to astrology, spirituality, or well-being, gently steer the conversation back to how celestial energies can guide them.
+    - Never give medical, legal, or financial advice.`
   );
 
   const conversationalContext = [systemPrompt, ...state.messages];
