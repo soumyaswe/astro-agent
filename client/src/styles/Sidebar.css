@@ -1,4 +1,4 @@
-/* ── Sidebar ── */
+/*  Sidebar  */
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;

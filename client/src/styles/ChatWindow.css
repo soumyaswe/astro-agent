@@ -1,4 +1,4 @@
-/* ── ChatWindow ── */
+/*  ChatWindow  */
 .chat-window {
   flex: 1;
   display: flex;
@@ -10,7 +10,7 @@
   position: relative;
 }
 
-/* ── Messages scrollable area ── */
+/*  Messages scrollable area  */
 .messages-area {
   flex: 1;
   overflow-y: auto;
@@ -19,7 +19,7 @@
   flex-direction: column;
 }
 
-/* ── Center / empty states ── */
+/*  Center / empty states  */
 .chat-center-state,
 .chat-empty-state {
   flex: 1;
@@ -87,7 +87,7 @@
   transform: translateY(-1px);
 }
 
-/* ── Messages list ── */
+/*  Messages list  */
 .messages-list {
   display: flex;
   flex-direction: column;
@@ -98,7 +98,7 @@
   margin: 0 auto;
 }
 
-/* ── Single message ── */
+/*  Single message  */
 .message {
   display: flex;
   gap: 12px;

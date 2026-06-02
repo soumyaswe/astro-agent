@@ -3,7 +3,6 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
-import { env } from "./config/env";
 import { authRoutes } from "./routes/auth.route";
 import { chatHandler } from "./routes/chat.route";
 import { errorHandler } from "./middleware/errorHandler";
@@ -11,7 +10,7 @@ import { errorHandler } from "./middleware/errorHandler";
 export const app = express();
 
 app.use(cors({
-  origin: 'http://localhost:5174', // Must match the exact URL of the React app
+  origin: process.env.ALLOWED_ORIGIN, // Must match the exact URL of the React app
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

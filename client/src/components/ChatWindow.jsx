@@ -68,8 +68,6 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
   useEffect(() => {
     if (activeSessionId) {
       if (isCreatingSessionRef.current) {
-        // We just created this session, it's empty in the DB.
-        // Don't wipe the optimistic messages we just added!
         isCreatingSessionRef.current = false;
       } else {
         loadHistory(activeSessionId);
@@ -240,7 +238,7 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
         body: JSON.stringify({
           message: text,
           userId,
-          thread_id: sessionIdForFetch, // <-- Guaranteed to be valid, and matches backend schema!
+          thread_id: sessionIdForFetch, 
           userProfile,
         }),
         signal: controller.signal,
@@ -346,9 +344,7 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
             data?.type === 'tool_end' ||
             data?.event === 'on_tool_end'
           ) {
-            // We NO LONGER clear the tool here!
-            // We want the indicator to stay visible while the LLM digests the result.
-            // It will be cleared automatically as soon as the first text token flows.
+  
           }
 
           // Stream end

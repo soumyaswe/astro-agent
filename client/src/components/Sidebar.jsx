@@ -2,11 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import '../styles/Sidebar.css';
 
-/**
- * Sidebar
- * Fetches chat_sessions for the current user and lists them.
- * Clicking a session sets it as active in the parent.
- */
+//sidebar
 export default function Sidebar({
   userId,
   activeSessionId,

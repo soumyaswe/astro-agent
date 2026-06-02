@@ -1,4 +1,4 @@
-/* ── App Layout ── */
+/*  App Layout  */
 .app-layout {
   display: flex;
   height: 100svh;
@@ -8,7 +8,7 @@
   background-image: var(--grad-glow);
 }
 
-/* ── Mobile Topbar (hidden on desktop) ── */
+/*  Mobile Topbar (hidden on desktop)  */
 .mobile-topbar {
   display: none;
   align-items: center;
@@ -60,7 +60,7 @@
   background-clip: text;
 }
 
-/* ── Responsive breakpoints ── */
+/*  Responsive breakpoints  */
 @media (max-width: 768px) {
   .mobile-topbar {
     display: flex;
@@ -68,6 +68,6 @@
 
   .app-layout {
     flex-direction: column;
-    padding-top: 56px; /* topbar height */
+    padding-top: 56px; 
   }
 }
