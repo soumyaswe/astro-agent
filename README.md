@@ -1,0 +1,3 @@
+Engineering Tradeoff Note: > The original brief requested House calculations. Initially, I attempted to use the swisseph Node wrapper to accomplish this. However, it relies on C++ binaries that caused node-gyp build failures in my local Windows environment. To unblock development and meet the deadline, I pivoted to astronomy-engine (a pure JS library). This fulfills the core requirement of non-hallucinated, mathematically accurate planetary ephemeris data, though I consciously scoped out House calculations as they require complex spherical trigonometry not native to the engine.
+
+// Automatically generate a title using the first ~30 characters of the user's first message

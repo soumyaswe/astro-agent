@@ -17,11 +17,11 @@ export default function BirthDetailsModal({ userId, onClose, existingProfile }) 
     if (existingProfile) {
       setFormData({
         name: existingProfile.name || '',
-        dateOfBirth: existingProfile.dateOfBirth
-          ? existingProfile.dateOfBirth.split('T')[0]
+        dateOfBirth: existingProfile.date_of_birth
+          ? existingProfile.date_of_birth.split('T')[0]
           : '',
-        timeOfBirth: existingProfile.timeOfBirth || '',
-        placeOfBirth: existingProfile.placeOfBirth || '',
+        timeOfBirth: existingProfile.time_of_birth || '',
+        placeOfBirth: existingProfile.place_of_birth || '',
       });
     }
   }, [existingProfile]);
@@ -71,11 +71,11 @@ export default function BirthDetailsModal({ userId, onClose, existingProfile }) 
     const record = {
       id: userId,
       name: formData.name,
-      dateOfBirth: formData.dateOfBirth
+      date_of_birth: formData.dateOfBirth
         ? new Date(formData.dateOfBirth).toISOString()
         : null,
-      timeOfBirth: formData.timeOfBirth || null,
-      placeOfBirth: formData.placeOfBirth || null,
+      time_of_birth: formData.timeOfBirth || null,
+      place_of_birth: formData.placeOfBirth || null,
       latitude,
       longitude,
       timezone,

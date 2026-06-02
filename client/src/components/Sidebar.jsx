@@ -23,16 +23,15 @@ export default function Sidebar({
   useEffect(() => {
     if (!userId) return;
     fetchSessions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const fetchSessions = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('chat_sessions')
-      .select('id, createdAt')
-      .eq('userId', userId)
-      .order('createdAt', { ascending: false });
+      .select('id, title, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
     if (!error && data) {
       setSessions(data);
@@ -117,7 +116,8 @@ export default function Sidebar({
                 }}
               >
                 <span className="session-dot">◉</span>
-                <span className="session-date">{formatDate(session.createdAt)}</span>
+                <span className="session-title">{session.title || 'Cosmic Session'}</span>
+                <span className="session-date">{formatDate(session.created_at)}</span>
               </button>
             ))
           )}

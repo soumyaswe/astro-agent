@@ -3,6 +3,7 @@ import { Annotation, messagesStateReducer } from "@langchain/langgraph";
 
 //Sub-schema for the user's birth data
 export interface BirthDetails {
+  name?: string;
   date_of_birth?: string;     
   time_of_birth?: string;     
   place_of_birth?: string;    

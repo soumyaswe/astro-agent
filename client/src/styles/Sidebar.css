@@ -139,9 +139,18 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-.session-date {
+.session-title {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.session-date {
+  font-size: 11px;
+  color: var(--clr-text-muted);
+  flex-shrink: 0;
 }
 
 .sidebar-loading,

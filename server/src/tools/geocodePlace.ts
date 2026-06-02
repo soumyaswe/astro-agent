@@ -1,5 +1,15 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
+// Shape of the Open-Meteo geocoding API response
+interface GeocodingApiResponse {
+  results?: Array<{
+    latitude: number;
+    longitude: number;
+    timezone: string;
+    [key: string]: unknown; // allow extra fields we don't use
+  }>;
+}
+
 // Shape of a successful geocoding result returned to the caller
 interface GeocodeResult {
   latitude: number;
@@ -17,7 +27,7 @@ export const geocode_place = tool(
           error: `Geocoding API returned an error: ${response.status} ${response.statusText}`,
         });
       }
-      const data = await response.json();
+      const data = (await response.json()) as GeocodingApiResponse;
       // Validate that results are present and non-empty
       if (
         !data.results ||
@@ -28,9 +38,9 @@ export const geocode_place = tool(
       }
       const first = data.results[0];
       const result: GeocodeResult = {
-        latitude: first.latitude as number,
-        longitude: first.longitude as number,
-        timezone: first.timezone as string,
+        latitude: first.latitude,
+        longitude: first.longitude,
+        timezone: first.timezone,
       };
       return JSON.stringify(result);
     } catch (error) {

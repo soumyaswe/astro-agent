@@ -27,7 +27,7 @@ export async function classifyIntent(state: AgentStateType) {
       : JSON.stringify(lastMessage.content);
 
   const classifier = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.1-flash-lite",
     temperature: 0,
   }).withStructuredOutput(intentSchema);
 
@@ -40,7 +40,7 @@ Classify the user message into exactly one of these intents:
 - free_form: Any other astrology question, spiritual inquiry, or general conversation.`
     ),
     new HumanMessage(userText),
-  ]);
+  ], { tags: ["classifier"] });
 
   return { intent: response.intent };
 }
@@ -48,15 +48,23 @@ Classify the user message into exactly one of these intents:
 //reasoning node - calls the model to get the next message and updates the state with the new message
 export async function callModel(state: AgentStateType) {
   const model = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.1-flash-lite",
     temperature: 0,
   }).bindTools(tools);
+
+  const p = state.birth_details;
+  const profileString = p 
+    ? `Name: ${p.name}, DOB: ${p.date_of_birth}, Time: ${p.time_of_birth}, Place: ${p.place_of_birth}, Lat: ${p.latitude}, Lon: ${p.longitude}, TZ: ${p.timezone}` 
+    : "No profile saved yet.";
 
   const systemPrompt = new SystemMessage(
     `You are an expert astrologer and a warm, caring, and deeply insightful daily spiritual companion.
     Your mission is to guide users by computing their birth charts, analyzing real planetary data, and answering their questions with empathy, wisdom, and clarity.
 
     The user's current intent has been classified as: ${state.intent}. Focus your response accordingly.
+
+    Here are the user's saved birth details: ${profileString}.
+    Do not ask the user for these details. Use them automatically if you need to calculate a chart.
     
     CRITICAL INSTRUCTIONS:
     - You must remain strictly in character as a professional astrologer and spiritual guide. Never break character or state that you are a generic AI model.

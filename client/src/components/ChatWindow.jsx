@@ -1,46 +1,90 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
 import '../styles/ChatWindow.css';
 
-const LANGGRAPH_API_URL =
-  import.meta.env.VITE_LANGGRAPH_API_URL || 'http://localhost:3000/api/chat';
+// ── Error Boundary: catches ReactMarkdown parse crashes mid-stream ──
+class MarkdownErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-/**
- * ChatWindow
- * Core chat UI with SSE streaming support.
- */
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn('[MarkdownErrorBoundary] Caught render error:', error?.message);
+  }
+
+  // Reset when new content arrives so the next chunk gets a fresh attempt
+  componentDidUpdate(prevProps) {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback: render the raw text if the Markdown parser fails
+      return <span className="whitespace-pre-wrap">{this.props.fallbackText}</span>;
+    }
+    return this.props.children;
+  }
+}
+
+// Strip leaked intent JSON — bulletproof: only runs .replace on real strings
+const cleanIntent = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  try {
+    return text.replace(/\{"intent":\s*"[^"]*"\}\s*/g, '');
+  } catch {
+    return text;
+  }
+};
+
+const LANGGRAPH_API_URL =
+  import.meta.env.VITE_LANGGRAPH_API_URL || 'http://localhost:4000/api/chat';
+
+// Stable unique ID for each message
+let _msgId = 0;
+const nextId = () => `msg-${++_msgId}`;
+
 export default function ChatWindow({ userId, activeSessionId, onSessionCreated, userProfile }) {
-  const [messages, setMessages] = useState([]); // { role: 'user'|'assistant', content: string }
+  const [messages, setMessages] = useState([]); // { id, role: 'user'|'assistant', content }
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [toolStatus, setToolStatus] = useState(null); // temporary tool indicator
+  const [activeTool, setActiveTool] = useState(null); // name of currently running tool
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState(activeSessionId);
 
+  // Refs
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const isCreatingSessionRef = useRef(false);
 
-  // Sync session id from parent
+  //Load history when session changes
   useEffect(() => {
-    setCurrentSessionId(activeSessionId);
-  }, [activeSessionId]);
-
-  // Load history when session changes
-  useEffect(() => {
-    if (currentSessionId) {
-      loadHistory(currentSessionId);
+    if (activeSessionId) {
+      if (isCreatingSessionRef.current) {
+        // We just created this session, it's empty in the DB.
+        // Don't wipe the optimistic messages we just added!
+        isCreatingSessionRef.current = false;
+      } else {
+        loadHistory(activeSessionId);
+      }
     } else {
       setMessages([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSessionId]);
+  }, [activeSessionId]);
 
-  // Auto-scroll to bottom whenever messages update
+  //Auto-scroll on new messages or tool updates
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, toolStatus]);
+  }, [messages, activeTool]);
 
+  //Load chat history from langgraph_checkpoints
   const loadHistory = async (sessionId) => {
     setLoadingHistory(true);
     setMessages([]);
@@ -59,40 +103,20 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
     }
 
     if (data?.message_history && Array.isArray(data.message_history)) {
-      // Normalize to our internal {role, content} format
       const normalized = data.message_history.map((msg) => ({
+        id: nextId(),
         role: msg.role || msg.type || 'assistant',
-        content: msg.content || msg.text || '',
+        content: String(msg.content || msg.text || ''),
       }));
       setMessages(normalized);
     }
   };
 
-  const createNewSession = async () => {
-    const { data, error } = await supabase
-      .from('chat_sessions')
-      .insert({ userId })
-      .select('id')
-      .single();
 
-    if (error) {
-      console.error('Failed to create session:', error.message);
-      return null;
-    }
 
-    const newId = data.id;
-    setCurrentSessionId(newId);
-    onSessionCreated?.(newId);
-
-    // Refresh sidebar history list
-    window.__sidebarRefresh?.();
-
-    return newId;
-  };
-
-  // Parse a single SSE line buffer into {event, data}
-  const parseSSEChunk = (raw) => {
-    const lines = raw.split('\n');
+  //SSE chunk parser
+  const parseSSEBlock = (block) => {
+    const lines = block.split('\n');
     let event = null;
     let dataStr = '';
 
@@ -105,48 +129,94 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
     }
 
     try {
-      const parsed = dataStr ? JSON.parse(dataStr) : null;
-      return { event, data: parsed, rawData: dataStr };
+      return { event, data: dataStr ? JSON.parse(dataStr) : null, rawData: dataStr };
     } catch {
       return { event, data: null, rawData: dataStr };
     }
   };
 
-  const handleSend = useCallback(async () => {
+  // Safely coerce any chunk value to a plain string
+  const safeChunkToString = (raw) => {
+    if (typeof raw === 'string') return raw;
+    if (Array.isArray(raw)) {
+      return raw
+        .filter((c) => c && c.type === 'text')
+        .map((c) => String(c.text ?? ''))
+        .join('');
+    }
+    if (raw == null) return '';
+    return String(raw);
+  };
+
+  //Core streaming function — wrapped in outer try/catch for total safety
+  const sendMessage = useCallback(async (e) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     const text = input.trim();
     if (!text || isStreaming) return;
 
     setInput('');
-    setToolStatus(null);
+    setActiveTool(null);
 
-    // Append user message immediately
-    const userMsg = { role: 'user', content: text };
-    setMessages((prev) => [...prev, userMsg]);
+    // 1. Append user message immediately
+    setMessages((prev) => [...(prev || []), { id: nextId(), role: 'user', content: text }]);
 
-    // Ensure we have a session
-    let sessionId = currentSessionId;
-    if (!sessionId) {
-      sessionId = await createNewSession();
-      if (!sessionId) return;
+    // 2. Ensure we have a session (Race Condition Fix)
+    let sessionIdForFetch = activeSessionId;
+
+    if (!sessionIdForFetch) {
+      try {
+        let sessionTitle = text.trim();
+        if (sessionTitle.length > 30) {
+          sessionTitle = sessionTitle.substring(0, 27) + '...';
+        }
+
+        const { data, error } = await supabase
+          .from('chat_sessions')
+          .insert({ 
+            user_id: userId,
+            title: sessionTitle
+          })
+          .select('id')
+          .single();
+          
+        if (error) throw error;
+        if (data) {
+          sessionIdForFetch = data.id;
+          // IMPORTANT: Bypass loadHistory wipeout for this newly created session
+          isCreatingSessionRef.current = true;
+          // Call the prop callback
+          onSessionCreated?.(data.id); 
+          window.__sidebarRefresh?.();
+        }
+      } catch (sessionErr) {
+        console.error('[ChatWindow] Failed to create session:', sessionErr);
+        return;
+      }
+      if (!sessionIdForFetch) return;
     }
 
-    // Placeholder for assistant's streaming response
-    setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+    // 3. Add an empty assistant placeholder — tokens stream into this
+    const assistantId = nextId();
+    setMessages((prev) => [...(prev || []), { id: assistantId, role: 'assistant', content: '' }]);
     setIsStreaming(true);
 
-    // Cancel any in-flight request
+    // 4. Cancel any previous in-flight request
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      const response = await fetch(LANGGRAPH_API_URL, {
+      const apiUrl = import.meta.env.VITE_LANGGRAPH_API_URL || LANGGRAPH_API_URL;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
           userId,
-          thread_id: sessionId,
+          thread_id: sessionIdForFetch, // <-- Guaranteed to be valid, and matches backend schema!
           userProfile,
         }),
         signal: controller.signal,
@@ -156,7 +226,11 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
         throw new Error(`Server error: ${response.status}`);
       }
 
-      // Read as a ReadableStream
+      // 5. Read the response body as a ReadableStream — guard against null body
+      if (!response.body) {
+        throw new Error('Response body is empty');
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
@@ -167,89 +241,127 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
 
         buffer += decoder.decode(value, { stream: true });
 
-        // SSE messages are separated by double newlines
+        // SSE events are separated by double newlines (\n\n)
         const parts = buffer.split('\n\n');
-        buffer = parts.pop(); // keep incomplete trailing chunk
+        buffer = parts.pop(); // hold the incomplete trailing chunk
 
-        for (const part of parts) {
-          if (!part.trim()) continue;
-          const { event, data, rawData } = parseSSEChunk(part);
+        for (const block of parts) {
+          if (!block.trim()) continue;
 
-          // Handle token streaming (LangChain / LangGraph event names)
+          let parsed;
+          try {
+            parsed = parseSSEBlock(block);
+          } catch (parseErr) {
+            console.warn('[ChatWindow] Failed to parse SSE block:', parseErr);
+            continue;
+          }
+
+          const { event, data, rawData } = parsed;
+
+          //Token streaming 
           if (
             event === 'token' ||
             event === 'on_chat_model_stream' ||
             data?.type === 'token' ||
             data?.event === 'on_chat_model_stream'
           ) {
-            const chunk =
-              data?.chunk?.content ||
-              data?.content ||
-              data?.token ||
-              rawData ||
+            const rawChunk =
+              data?.chunk?.content ??
+              data?.content ??
+              data?.value ??
+              data?.token ??
+              rawData ??
               '';
 
+            const chunk = safeChunkToString(rawChunk);
+            if (!chunk) continue; // skip empty tokens
+
+            // Strict React immutability — brand new array + brand new object
             setMessages((prev) => {
-              const updated = [...prev];
-              const lastIdx = updated.length - 1;
-              if (updated[lastIdx]?.role === 'assistant') {
-                updated[lastIdx] = {
-                  ...updated[lastIdx],
-                  content: updated[lastIdx].content + chunk,
-                };
-              }
-              return updated;
+              if (!prev || prev.length === 0) return prev;
+
+              const lastIndex = prev.length - 1;
+              const lastMessage = prev[lastIndex];
+
+              // Only append if the last message belongs to the assistant
+              if (lastMessage.role !== 'assistant') return prev;
+
+              // 1. Ensure the incoming chunk is actually a string
+              const safeChunk = typeof chunk === 'string' ? chunk : '';
+
+              // 2. Combine the old text with the new chunk safely
+              const combinedText = (lastMessage.content || '') + safeChunk;
+
+              // 3. Create a BRAND NEW object and array to satisfy React immutability
+              const updatedMessages = [...prev];
+              updatedMessages[lastIndex] = {
+                ...lastMessage,
+                content: combinedText,
+              };
+
+              return updatedMessages;
             });
-            setToolStatus(null);
+
+            setActiveTool(null); // clear tool indicator when tokens flow
           }
 
-          // Tool / function calls — show a transient indicator
+          // Tool start 
           else if (
             event === 'tool_start' ||
             data?.type === 'tool_start' ||
             data?.event === 'on_tool_start'
           ) {
-            const toolName = data?.name || data?.tool || 'the stars';
-            setToolStatus(`Consulting ${toolName}…`);
+            const toolName =
+              data?.name || data?.tool || data?.input?.tool || 'the cosmos';
+            setActiveTool(toolName);
           }
 
-          // End of stream
+          //Tool end
+          else if (
+            event === 'tool_end' ||
+            data?.type === 'tool_end' ||
+            data?.event === 'on_tool_end'
+          ) {
+            // We NO LONGER clear the tool here!
+            // We want the indicator to stay visible while the LLM digests the result.
+            // It will be cleared automatically as soon as the first text token flows.
+          }
+
+          // Stream end
           else if (
             event === 'end' ||
-            data?.type === 'end' ||
-            event === 'done'
+            event === 'done' ||
+            data?.type === 'end'
           ) {
-            setToolStatus(null);
+            setActiveTool(null);
           }
         }
       }
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Streaming error:', err);
+      if (err?.name !== 'AbortError') {
+        console.error('[ChatWindow] Streaming error:', err);
+        // Replace empty assistant bubble with an error message
         setMessages((prev) => {
-          const updated = [...prev];
-          const lastIdx = updated.length - 1;
-          if (updated[lastIdx]?.role === 'assistant' && updated[lastIdx].content === '') {
-            updated[lastIdx] = {
-              ...updated[lastIdx],
-              content: '⚠ Something went wrong. Please try again.',
-            };
-          }
-          return updated;
+          if (!prev || prev.length === 0) return prev;
+          return prev.map((msg) =>
+            msg.id === assistantId && !msg.content
+              ? { ...msg, content: '⚠ Something went wrong. Please try again.' }
+              : msg
+          );
         });
       }
     } finally {
       setIsStreaming(false);
-      setToolStatus(null);
+      setActiveTool(null);
       inputRef.current?.focus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, isStreaming, currentSessionId, userId, userProfile]);
+  }, [input, isStreaming, activeSessionId, userId, userProfile]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      sendMessage();
     }
   };
 
@@ -257,7 +369,7 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
 
   return (
     <main className="chat-window">
-      {/* Messages area */}
+      {/*  Messages area */}
       <div className="messages-area">
         {loadingHistory ? (
           <div className="chat-center-state">
@@ -291,43 +403,49 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
           </div>
         ) : (
           <div className="messages-list">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`message message--${msg.role}`}>
-                <div className="message-avatar">
-                  {msg.role === 'user' ? '👤' : '✦'}
-                </div>
-                <div className="message-bubble">
-                  {msg.content ? (
-                    // Preserve newlines
-                    msg.content.split('\n').map((line, i) => (
-                      <span key={i}>
-                        {line}
-                        {i < msg.content.split('\n').length - 1 && <br />}
-                      </span>
-                    ))
-                  ) : (
-                    // Streaming cursor for empty assistant bubble
-                    msg.role === 'assistant' && <span className="cursor-blink">▌</span>
-                  )}
-                </div>
-              </div>
-            ))}
+            {messages?.map((message, index) => {
+              // 1. Grab the raw string safely
+              const displayContent = typeof message.content === 'string' ? message.content : "";
 
-            {/* Tool indicator */}
-            {toolStatus && (
-              <div className="tool-indicator">
-                <span className="spinner-sm" />
-                <span>{toolStatus}</span>
-              </div>
-            )}
+              return (
+                <div key={index} className={`message message--${message.role || 'assistant'}`}>
+                  <div className="message-avatar">
+                    {message.role === 'user' ? '👤' : '✦'}
+                  </div>
+                  <div className="message-bubble">
+                    {message.role === 'user' ? (
+                      <span className="whitespace-pre-wrap">{displayContent}</span>
+                    ) : (
+                      <MarkdownErrorBoundary fallbackText={displayContent}>
+                        {/* The parser only gets safe, clean text now */}
+                        <div className="markdown-body">
+                          <ReactMarkdown>
+                            {displayContent}
+                          </ReactMarkdown>
+                        </div>
+                      </MarkdownErrorBoundary>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
+            {/* Scroll anchor */}
             <div ref={bottomRef} />
           </div>
         )}
       </div>
 
-      {/* Input area */}
+      {/*  Input area  */}
       <div className="input-area">
+        {/* Tool indicator — shown above the input while a tool runs */}
+        {activeTool && (
+          <div className="tool-indicator" role="status" aria-live="polite">
+            <span className="tool-indicator-dot" />
+            <span> Using tool: <strong>{activeTool}</strong>…</span>
+          </div>
+        )}
+
         <div className="input-wrapper">
           <textarea
             ref={inputRef}
@@ -344,7 +462,10 @@ export default function ChatWindow({ userId, activeSessionId, onSessionCreated, 
           <button
             id="send-btn"
             className="send-btn"
-            onClick={handleSend}
+            onClick={(e) => {
+              e.preventDefault();
+              sendMessage();
+            }}
             disabled={!input.trim() || isStreaming}
             aria-label="Send message"
           >

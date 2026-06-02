@@ -18,7 +18,7 @@ function getOrCreateUserId() {
 }
 
 export default function App() {
-  // ----- Global State -----
+  //Global State
   const [currentUserId] = useState(() => getOrCreateUserId());
   const [userProfile, setUserProfile] = useState(null);
   const [activeSessionId, setActiveSessionId] = useState(null);
