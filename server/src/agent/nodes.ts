@@ -1,6 +1,7 @@
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { z } from "zod";
 import { AgentStateType } from "./state";
 import { get_daily_transits } from "../tools/getDailyTransits";
 import { geocode_place } from "../tools/geocodePlace";
@@ -12,16 +13,50 @@ const tools: any[] = [compute_birth_chart, get_daily_transits, geocode_place, kn
 //tool node - executes the tool calls and updates the state with the tool results
 export const toolNode = new ToolNode(tools);
 
+// Intent classification schema
+const intentSchema = z.object({
+  intent: z.enum(["chart_request", "daily_horoscope", "free_form"]),
+});
+
+//classifier node - classifies the user's intent using a fast/cheap LLM call
+export async function classifyIntent(state: AgentStateType) {
+  const lastMessage = state.messages[state.messages.length - 1];
+  const userText =
+    typeof lastMessage.content === "string"
+      ? lastMessage.content
+      : JSON.stringify(lastMessage.content);
+
+  const classifier = new ChatGoogleGenerativeAI({
+    model: "gemini-2.5-flash",
+    temperature: 0,
+  }).withStructuredOutput(intentSchema);
+
+  const response = await classifier.invoke([
+    new SystemMessage(
+      `You are an intent classifier for an astrology assistant. \
+Classify the user message into exactly one of these intents:
+- chart_request: The user wants to compute or discuss a birth chart.
+- daily_horoscope: The user wants today's horoscope, daily transits, or daily energy forecast.
+- free_form: Any other astrology question, spiritual inquiry, or general conversation.`
+    ),
+    new HumanMessage(userText),
+  ]);
+
+  return { intent: response.intent };
+}
+
 //reasoning node - calls the model to get the next message and updates the state with the new message
 export async function callModel(state: AgentStateType) {
   const model = new ChatGoogleGenerativeAI({
-    model: "gemini-3.5-flash",
+    model: "gemini-2.5-flash",
     temperature: 0,
   }).bindTools(tools);
 
   const systemPrompt = new SystemMessage(
     `You are an expert astrologer and a warm, caring, and deeply insightful daily spiritual companion.
     Your mission is to guide users by computing their birth charts, analyzing real planetary data, and answering their questions with empathy, wisdom, and clarity.
+
+    The user's current intent has been classified as: ${state.intent}. Focus your response accordingly.
     
     CRITICAL INSTRUCTIONS:
     - You must remain strictly in character as a professional astrologer and spiritual guide. Never break character or state that you are a generic AI model.

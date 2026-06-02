@@ -1,7 +1,7 @@
 import { BaseMessage } from "@langchain/core/messages";
 import { Annotation, messagesStateReducer } from "@langchain/langgraph";
 
-// 1. Sub-schema for the user's birth data
+//Sub-schema for the user's birth data
 export interface BirthDetails {
   date_of_birth?: string;     
   time_of_birth?: string;     
@@ -11,7 +11,7 @@ export interface BirthDetails {
   timezone?: string;
 }
 
-// 2. Main Graph State Annotation
+//Main Graph State Annotation
 export const AgentState = Annotation.Root({
   
   messages: Annotation<BaseMessage[]>({
@@ -25,6 +25,11 @@ export const AgentState = Annotation.Root({
   }),
   
   tool_status: Annotation<string>({
+    value: (x, y) => y,
+    default: () => "",
+  }),
+
+  intent: Annotation<string>({
     value: (x, y) => y,
     default: () => "",
   })

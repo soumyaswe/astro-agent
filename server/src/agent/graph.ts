@@ -1,12 +1,16 @@
-import { StateGraph, START, END } from "@langchain/langgraph";
+import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
 import { AgentState } from "./state";
-import { callModel, toolNode, shouldContinue } from "./nodes";
+import { callModel, toolNode, shouldContinue, classifyIntent } from "./nodes";
 
 const workflow = new StateGraph(AgentState)
+  .addNode("classifier", classifyIntent)
   .addNode("agent", callModel)
   .addNode("tools", toolNode)
-  .addEdge(START, "agent")
+  .addEdge(START, "classifier")
+  .addEdge("classifier", "agent")
   .addConditionalEdges("agent", shouldContinue)
   .addEdge("tools", "agent");
 
-export const app = workflow.compile();
+const checkpointer = new MemorySaver();
+
+export const app = workflow.compile({ checkpointer });
