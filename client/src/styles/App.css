@@ -1,0 +1,73 @@
+/* ── App Layout ── */
+.app-layout {
+  display: flex;
+  height: 100svh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--clr-bg);
+  background-image: var(--grad-glow);
+}
+
+/* ── Mobile Topbar (hidden on desktop) ── */
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 56px;
+  background: var(--clr-surface);
+  border-bottom: 1px solid var(--clr-border);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  flex-shrink: 0;
+}
+
+.topbar-menu-btn,
+.topbar-profile-btn {
+  background: none;
+  border: none;
+  color: var(--clr-text);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), color var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.topbar-menu-btn:hover,
+.topbar-profile-btn:hover {
+  background: var(--clr-surface-2);
+  color: var(--clr-text-bright);
+}
+
+.topbar-brand {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--clr-text-bright);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.topbar-brand-icon {
+  background: var(--grad-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Responsive breakpoints ── */
+@media (max-width: 768px) {
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .app-layout {
+    flex-direction: column;
+    padding-top: 56px; /* topbar height */
+  }
+}

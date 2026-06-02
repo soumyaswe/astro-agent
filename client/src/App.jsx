@@ -1,122 +1,120 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from './lib/supabase';
+import Sidebar from './components/Sidebar';
+import ChatWindow from './components/ChatWindow';
+import BirthDetailsModal from './components/BirthDetailsModal';
+import './styles/App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const USER_ID_KEY = 'astroagent_user_id';
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function getOrCreateUserId() {
+  let id = localStorage.getItem(USER_ID_KEY);
+  if (!id) {
+    id = uuidv4();
+    localStorage.setItem(USER_ID_KEY, id);
+  }
+  return id;
 }
 
-export default App
+export default function App() {
+  // ----- Global State -----
+  const [currentUserId] = useState(() => getOrCreateUserId());
+  const [userProfile, setUserProfile] = useState(null);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // mobile
+
+  // Load existing profile on mount
+  useEffect(() => {
+    if (!currentUserId) return;
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
+
+  const loadProfile = async () => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', currentUserId)
+      .maybeSingle();
+
+    if (!error && data) {
+      setUserProfile(data);
+    } else if (!error && !data) {
+      // First time user — open the modal automatically
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleModalClose = (updatedProfile) => {
+    setIsModalOpen(false);
+    if (updatedProfile) {
+      setUserProfile(updatedProfile);
+    }
+  };
+
+  const handleNewChat = () => {
+    setActiveSessionId(null);
+    setIsSidebarOpen(false);
+  };
+
+  const handleSessionCreated = (newId) => {
+    setActiveSessionId(newId);
+  };
+
+  return (
+    <div className="app-layout">
+      {/* Mobile topbar */}
+      <header className="mobile-topbar">
+        <button
+          className="topbar-menu-btn"
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open sidebar"
+        >
+          ☰
+        </button>
+        <div className="topbar-brand">
+          <span className="topbar-brand-icon">✦</span>
+          AstroAgent
+        </div>
+        <button
+          className="topbar-profile-btn"
+          onClick={() => setIsModalOpen(true)}
+          aria-label="Edit profile"
+        >
+          👤
+        </button>
+      </header>
+
+      {/* Sidebar */}
+      <Sidebar
+        userId={currentUserId}
+        activeSessionId={activeSessionId}
+        onSessionSelect={setActiveSessionId}
+        onNewChat={handleNewChat}
+        onOpenProfile={() => setIsModalOpen(true)}
+        userProfile={userProfile}
+        isMobileOpen={isSidebarOpen}
+        onMobileClose={() => setIsSidebarOpen(false)}
+      />
+
+      {/* Chat */}
+      <ChatWindow
+        userId={currentUserId}
+        activeSessionId={activeSessionId}
+        onSessionCreated={handleSessionCreated}
+        userProfile={userProfile}
+      />
+
+      {/* Birth Details Modal */}
+      {isModalOpen && (
+        <BirthDetailsModal
+          userId={currentUserId}
+          onClose={handleModalClose}
+          existingProfile={userProfile}
+        />
+      )}
+    </div>
+  );
+}
