@@ -61,10 +61,14 @@ Detailed test-by-test results can be found in `eval_results.csv`.
 
 ## Spot check as asked in EV03
 
-I chose 10 judge verdicts against my own judgements. The results: 
+I spot checked 10 judge verdicts against my own judgements. The results: 
 
 ```
+Tests chosen(test id's): 1 3 5 7 9 11 14 16 19 21
+Total agreements : 7
+Total disgareements : 3
 
+Agreement rate : 70%
 ```
 
 

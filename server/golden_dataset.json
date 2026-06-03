@@ -129,7 +129,7 @@
     "id": "test_19",
     "category": "graceful_failure",
     "input": "I want to know my rising sign, but I was born on July 4th, 1990 in Boston and I have absolutely no idea what time I was born.",
-    "expected_tool_called": false,
+    "expected_tool_called": true,
     "expected_behavior": "The AI should gracefully explain that a rising sign requires an exact birth time, and either offer to calculate a default Noon chart or explain what can still be read without a time."
   },
   {
