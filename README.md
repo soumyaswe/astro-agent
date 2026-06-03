@@ -128,17 +128,10 @@ The client will start using `vite`, typically on `http://localhost:5173`.
     - To make the frontend work, I eventually settled on a useEffect hook that simply grabs the very first profile it finds in the database (LIMIT 1).
 The "Why": Building a secure login/signup screen, handling JWT tokens, and managing session cookies takes hours. For a take-home assignment focused on AI integration, auth is a distraction. So for now I traded production-level security for the ability to instantly test the chat interface.
 
-* **UI Stability vs. Perfect Stream Parsing:** I implemented "brute force" UI fallbacks instead of a complex stream buffer parser.
-    - When the backend leaked the `{"intent": "chart_request"}` JSON into the stream, I used string-slicing directly inside the React render cycle to hide it.
-    - When incomplete Markdown tokens (like `bol...`) crashed the app, I wrapped `<ReactMarkdown>` in an Error Boundary that temporarily flashes raw text.
-The "Why": Handling Server-Sent Events (SSE) perfectly requires buffering chunks, checking for complete JSON, and parsing markdown on the fly. That is incredibly complex. I traded data cleanliness at the network layer for absolute UI stability, ensuring the user never sees a "White Screen of Death."
-
-* **Local Variables vs. Strict React Reactivity:** I bypassed React state for the initial network request.
-    - When creating a new chat session, I stored the newly generated Supabase ID in a local variable (`let currentSessionId = activeSessionId`) and fed that directly to the fetch body, rather than waiting for `setActiveSessionId` to trigger a re-render.
-The "Why": React state is asynchronous. Waiting for the state to update was causing a race condition where the first message sent a null session ID to the backend. Using a local variable was the fastest way to guarantee the backend received the correct ID immediately without rewriting the entire component lifecycle.
-
 * **Direct Database Fetches vs. State Management Tools:** I injected Supabase database calls directly into Express route handlers and React component functions.
     - When the AI asked for birth details that had already been provided, I added a quick Supabase query right in the middle of the `/api/chat` Express route to fetch the profile and inject it into the LangGraph system prompt.
 The "Why": In a massive production app, I would likely use a state manager (like Redux or Zustand) or an ORM (like Prisma) to handle user context. For this build, direct SQL/Supabase client calls were the most pragmatic way to bridge the context gap between the frontend and the AI.
+
+* **User session:** On closing the window and opening another time, all the previous chats and user birth details gets erased as i have not implemented user authentication. As a result it asks for birth details and no previous chat is available on opening window. However this doesn't happen when the window is refreshed. Happens only when a new window is opened.
 
 * **Chat Session Titles:** Automatically generates a title using the first ~30 characters of the user's first message.
