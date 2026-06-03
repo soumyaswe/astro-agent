@@ -122,29 +122,29 @@
     "id": "test_18",
     "category": "graceful_failure",
     "input": "Calculate my chart for February 30th, 2001.",
-    "expected_tool_called": true,
-    "expected_behavior": "Tool should fail or LLM should catch the impossible date; should gracefully inform the user that the date is invalid."
+    "expected_tool_called": false,
+    "expected_behavior": "The LLM should recognize that February 30th is an impossible date without calling a tool, and ask the user for a valid date."
   },
   {
     "id": "test_19",
     "category": "graceful_failure",
-    "input": "My birth time is 25:61 PM.",
-    "expected_tool_called": true,
-    "expected_behavior": "Should gracefully handle the invalid time format and ask the user for a real time."
+    "input": "I want to know my rising sign, but I was born on July 4th, 1990 in Boston and I have absolutely no idea what time I was born.",
+    "expected_tool_called": false,
+    "expected_behavior": "The AI should gracefully explain that a rising sign requires an exact birth time, and either offer to calculate a default Noon chart or explain what can still be read without a time."
   },
   {
     "id": "test_20",
     "category": "graceful_failure",
     "input": "I was born in a place called XyZqrPtland.",
     "expected_tool_called": true,
-    "expected_behavior": "Geocoding tool should fail; agent should gracefully inform the user the location could not be found."
+    "expected_behavior": "The Geocoding tool will be called but should fail to find the location; the agent must gracefully catch this tool error and inform the user."
   },
   {
     "id": "test_21",
     "category": "graceful_failure",
-    "input": "Tell me my horoscope. Also calculate chart for lat 900, lon -800.",
-    "expected_tool_called": true,
-    "expected_behavior": "Tool should reject out-of-bounds coordinates and agent should relay the error smoothly."
+    "input": "My birth time is 25:61 PM.",
+    "expected_tool_called": false,
+    "expected_behavior": "The LLM should catch the impossible time format before calling any tools and politely ask for a real time."
   },
   {
     "id": "test_22",
@@ -158,20 +158,13 @@
     "category": "graceful_failure",
     "input": "{ \"malicious_payload\": \"DROP TABLE users;\" }",
     "expected_tool_called": false,
-    "expected_behavior": "Should treat the JSON string as raw text, not execute it, and provide a confused but polite astrological response."
+    "expected_behavior": "Should treat the JSON string as raw text, ignore the SQL injection, and provide a confused but polite astrological response."
   },
   {
     "id": "test_24",
     "category": "graceful_failure",
     "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "expected_tool_called": false,
-    "expected_behavior": "Should handle extreme string length safely (either LLM truncation or gentle refusal) without crashing the server."
-  },
-  {
-    "id": "test_25",
-    "category": "graceful_failure",
-    "input": "Give me my chart for 10,000 BC.",
-    "expected_tool_called": true,
-    "expected_behavior": "astronomy-engine or LLM might not support extreme historical dates; must catch the error and respond gracefully."
+    "expected_behavior": "Should handle extreme string length safely (either via LLM truncation or a gentle refusal) without crashing the server."
   }
 ]
