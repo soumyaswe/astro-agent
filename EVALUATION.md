@@ -5,6 +5,12 @@ Evaluating an LLM agent requires more than just checking if the server returns a
 
 ## How to Run the Evaluation
 The entire evaluation suite can be executed with a single command:
+
+First go to server directory : 
+```
+cd server
+```
+In server directory run:
 ```
 npm run eval
 ```
