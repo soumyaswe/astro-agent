@@ -53,16 +53,9 @@ AstroAgent employs a modern, decoupled architecture designed for fluid streaming
 
 ## 📦 Database Setup (Supabase)
 
-Before running the application, you must configure your Supabase database. You will need three primary tables:
-
-1. **`user_profiles`**
-   - Stores the user's birth details (Name, DOB, Time, Location, Lat, Lon, Timezone).
-2. **`chat_sessions`**
-   - Stores metadata for each conversation (id, user_id, title).
-3. **`langgraph_checkpoints`**
-   - Stores the persistent conversational state from LangGraph.
-   - **Important**: Must include a `thread_id` (PK, string), `message_history` (JSON), and `checkpoint_data` (JSON/binary).
-
+   * Create a new, free project on [Supabase](https://supabase.com/).
+   * Go to the SQL Editor in your Supabase dashboard and run the exact SQL script provided in `schema.sql` to generate the required tables.
+   * Paste in your Supabase Project URL, Service Role Key, and your LLM API Key in environment variables.
 ---
 
 ## ⚙️ Environment Variables
